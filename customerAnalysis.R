@@ -106,7 +106,6 @@ setCustomerSuspType <- function(type) {
 customers$suspCoeff <- sapply(customers$suspicious_cst, setCustomerSuspType)
 
 
-
 ########################## The above part is OK :D
 
 
