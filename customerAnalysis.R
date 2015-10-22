@@ -128,14 +128,20 @@ customers$daysCoeff <- sapply(customers$cst_profile_age_days, function(value) {
 })
 head(customers$daysCoeff, 20)
 
+#################################### Forgetting Coefficients of Transfers ############################################
 
+requests$daysPassed <- difftime(as.Date(as.character(requests$request_date), "%d/%m/%Y"),
+                                as.Date("1970-01-01"), units = "days")
+requests$daysPassed <- requests$daysPassed - min(requests$daysPassed)
 
+forgettingExpFunction <- function(x) {
+    return ((0.5)^(x/max(unclass(requests$daysPassed))))  #max(unclass(requests$daysPassed)
+}
+
+requests$forgetCoeff <- forgettingExpFunction((as.numeric(requests$daysPassed)))
+plot(requests$forgetCoeff)
 
 ########################## The above part is OK :D
-
-
-
-
 
 filtered <- customers[customers$fraudulent_cst == 1 & customers$suspicious_cst == 0, ]
 filtered$fraudulent_cst
