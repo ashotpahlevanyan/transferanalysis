@@ -50,6 +50,7 @@ uniqueCustomers <- customers[unique(customers$customer_id),]
 #customers <- uniqueCustomers
 ## Later on we will refer to "uniqueCustomers" only
 
+#################################### Successfull Transfers ############################################
 
 ### Calculate quantile percentage of customer successful transfer count
 percentage <- quantile(customers$cst_successful_transfers_cnt, probs = seq(0, 1, 0.2))
@@ -63,17 +64,18 @@ coeffStep <- 5/(length(percentage)-1)
 # 1    2    3    7   13 1307
 #  0.5  0.6  0.7  0.8  0.9
 
-customers$historyTrust <- sapply(customers$cst_successful_transfers_cnt, function(value) {
+customers$successTransferCoeff <- sapply(customers$cst_successful_transfers_cnt, function(value) {
     for(idx in seq(1, length(percentage)-1, 1)) {
         if(value >= percentage[idx] && value < percentage[idx+1]) {
             return(0.5 + ((idx-1) * coeffStep)/10)
         }
     }
 })
-head(customers$historyTrust, 20)
+head(customers$successTransferCoeff, 20)
 
 #### now we have customers with one more column (historyTrust) with coefficient based on customer successful transfer history
 
+#################################### Fraudulent Type ############################################
 
 ### customer fraud type coefficients
 fairCustTrust <- 0.95
@@ -89,6 +91,8 @@ setCustomerFraudType <- function(type) {
 }
 
 customers$fraudCoeff <- sapply(customers$fraudulent_cst, setCustomerFraudType)
+
+#################################### Suspicious Type ############################################
 
 ### customer suspicious type coefficients
 cleanCustTrust <- 0.95
@@ -106,7 +110,30 @@ setCustomerSuspType <- function(type) {
 customers$suspCoeff <- sapply(customers$suspicious_cst, setCustomerSuspType)
 
 
+#################################### History Days ############################################
+
+### Calculate quantile percentage of customer history in days
+percentageDays <- quantile(customers$cst_profile_age_days, probs = seq(0, 1, 0.1))
+percentageDays
+### define the coefficient step, in order not to decrease dramatically customer chances to make the transfer,
+# we start from 0.5
+coeffStepDays <- 5/(length(percentageDays)-1)
+
+customers$daysCoeff <- sapply(customers$cst_profile_age_days, function(value) {
+    for(idx in seq(1, length(percentageDays)-1, 1)) {
+        if(value >= percentageDays[idx] && value < percentageDays[idx+1]) {
+            return(0.5 + ((idx-1) * coeffStepDays)/10)
+        }
+    }
+})
+head(customers$daysCoeff, 20)
+
+
+
+
 ########################## The above part is OK :D
+
+
 
 
 
