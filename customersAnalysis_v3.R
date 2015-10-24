@@ -217,7 +217,7 @@ requests$decisionCoeff <- with(requests,
             daysCoeff * transferTrust * forgetCoeff * sendCoeff * receiveCoeff )
 
 ### filter the coefficients columns to look
-filteredRequests <- requests[c("customer_id", "payment_type", "transferTrust",
+filteredRequests <- requests[c("request_id", "target_recipient_id", "customer_id", "payment_type", "transferTrust",
                                "daysPassed", "customerSendCount", "customerReceiveCount",
                                "forgetCoeff", "sendCoeff", "receiveCoeff",
                                "successTransferCoeff", "fraudCoeff", "suspCoeff",
@@ -232,6 +232,11 @@ decisionQuantiles <- quantile(requests$decisionCoeff, seq(0,1,0.05))
 decisionQuantiles
 ### select suspicious requests, the value 0.03800667 is 5% less trustful transfers
 susp <- customers[requests[requests$decisionCoeff < 0.03800667,]$idInCustomers,]
+
+tmp <- cut(filteredRequests$decisionCoeff,decisionQuantiles, include.lowest=TRUE, right=FALSE )
+filteredRequests$decisionRank <- as.integer(tmp)-1
+
+write.csv(filteredRequests, file = "classifiedRequests.csv")
 
 # ########################## The above part is OK :D
 
