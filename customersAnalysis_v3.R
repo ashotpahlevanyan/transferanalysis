@@ -231,12 +231,13 @@ ranks <- rank(requests$decisionCoeff)
 decisionQuantiles <- quantile(requests$decisionCoeff, seq(0,1,0.05))
 decisionQuantiles
 ### select suspicious requests, the value 0.03800667 is 5% less trustful transfers
-susp <- customers[requests[requests$decisionCoeff < 0.03800667,]$idInCustomers,]
+# susp <- customers[requests[requests$decisionCoeff < 0.03800667,]$idInCustomers,]
 
 tmp <- cut(filteredRequests$decisionCoeff,decisionQuantiles, include.lowest=TRUE, right=FALSE )
 filteredRequests$decisionRank <- as.integer(tmp)-1
 
-write.csv(filteredRequests, file = "classifiedRequests.csv")
+filteredRequests <- filteredRequests[order(filteredRequests$decisionRank),]
+write.csv(filteredRequests, file = "classifiedRequests.csv", row.names = FALSE)
 
 # ########################## The above part is OK :D
 
