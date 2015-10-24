@@ -9,32 +9,19 @@
 
 require("xlsx")
 
+### Load existing Data
 customers <- read.csv("customer_data.csv", header = TRUE)
 requests <- read.csv("request_data-2.csv", header = TRUE)
 
 colnames(customers)
 customers$fraudulent_cst
 unique(requests$payment_type)
-
 colnames(requests)
 
-#### transaction type coefficients
-bankTrust <- 0.9
-achTrust <- 0.7
-cardTrust <- 0.5
-handTrust <- 1 # if the transfer was hand to hand :D
 
-
-setTransactionType <- function(type) {
-    if( type == "bank" ) return(bankTrust)
-    if( type == "ach" ) return(achTrust)
-    if( type == "card" ) return(cardTrust)
-    return(handTrust)
-}
-
-## add transferTrust column
-requests.df <- requests
-requests.df$transferTrust <- sapply(requests$payment_type,setTransactionType)
+##############################################################################################
+#################################### Customers Processing ####################################
+##############################################################################################
 
 ## handle customer duplications
 length(customers$customer_id)
@@ -53,7 +40,7 @@ uniqueCustomers <- customers[unique(customers$customer_id),]
 #################################### Successfull Transfers ############################################
 
 ### Calculate quantile percentage of customer successful transfer count
-percentage <- quantile(customers$cst_successful_transfers_cnt, probs = seq(0, 1, 0.2))
+percentage <- quantile(customers$cst_successful_transfers_cnt, probs = seq(0, 1, 0.2), na.rm = TRUE)
 percentage
 ### define the coefficient step, in order not to decrease dramatically customer chances to make the transfer,
 # we start from 0.5
@@ -128,6 +115,32 @@ customers$daysCoeff <- sapply(customers$cst_profile_age_days, function(value) {
 })
 head(customers$daysCoeff, 20)
 
+
+
+##############################################################################################
+#################################### Requests Processing #####################################
+##############################################################################################
+
+
+#################################### Transaction Type ############################################
+#### transaction type coefficients
+bankTrust <- 0.9
+achTrust <- 0.7
+cardTrust <- 0.5
+handTrust <- 1 # if the transfer was hand to hand :D
+
+
+setTransactionType <- function(type) {
+    if( type == "bank" ) return(bankTrust)
+    if( type == "ach" ) return(achTrust)
+    if( type == "card" ) return(cardTrust)
+    return(handTrust)
+}
+
+## add transferTrust column
+requests$transferTrust <- sapply(requests$payment_type,setTransactionType)
+
+
 #################################### Forgetting Coefficients of Transfers ############################################
 
 requests$daysPassed <- difftime(as.Date(as.character(requests$request_date), "%d/%m/%Y"),
@@ -135,16 +148,81 @@ requests$daysPassed <- difftime(as.Date(as.character(requests$request_date), "%d
 requests$daysPassed <- requests$daysPassed - min(requests$daysPassed)
 
 forgettingExpFunction <- function(x) {
-    return ((0.5)^(x/max(unclass(requests$daysPassed))))  #max(unclass(requests$daysPassed)
+    return (1.5 - (0.5)^(x/max(unclass(requests$daysPassed))))  #max(unclass(requests$daysPassed)
 }
+#### here we need to forget the mistakes/fraud/suspicious behaviour of customer, so we introduce en exponential function
+# f(x) <- 1.5 - (0.5)^(x/max(days passed)), the shift with 1.5 is needed to avoid 0 values, since we will use those coefficient in product
 
 requests$forgetCoeff <- forgettingExpFunction((as.numeric(requests$daysPassed)))
 plot(requests$forgetCoeff)
 
-########################## The above part is OK :D
+#################################### Customer ID Check ############################################
 
-filtered <- customers[customers$fraudulent_cst == 1 & customers$suspicious_cst == 0, ]
-filtered$fraudulent_cst
+checkCustomerID <- function(id) {
+    return(any(as.character(customers$customer_id) == as.character(id)))
+}
+
+requests$senderExists <- sapply(requests$customer_id, checkCustomerID)
+length(requests[requests$senderExists == TRUE,]$customer_id)
+
+### All the receivers are not from our Customers List, only one is in the list
+requests$recipientExists <- sapply(requests$target_recipient_id, checkCustomerID)
+length(requests[requests$recipientExists == FALSE,]$customer_id)
+
+#################################### Customer ID Check ############################################
+
+#############  Get Customer Send Count
+sendersTable <- table(requests$customer_id)
+getSendCount <- function(id) {
+    return(sendersTable[[id]])
+}
+requests$customerSendCount <- sapply(requests$customer_id, getSendCount)
+
+#############  Get Recepient Receive Count
+receiversTable <- table(requests$target_recipient_id)
+getReceiveCount <- function(id) {
+    return(receiversTable[[id]])
+}
+requests$customerReceiveCount <- sapply(requests$target_recipient_id, getReceiveCount)
+
+###########################################################################################
+### Calculate Customer Send Coefficients
+sendExpFunction <- function(x) {
+    return ((0.5)^(x/max(requests$customerSendCount)))
+}
+
+requests$sendCoeff <- sendExpFunction((as.numeric(requests$customerSendCount)))
+
+###########################################################################################
+### Calculate Target Recepient Receive Coefficients
+receiveExpFunction <- function(x) {
+    return ((0.5)^(x/max(requests$customerReceiveCount)))
+}
+
+requests$receiveCoeff <- receiveExpFunction((as.numeric(requests$customerReceiveCount)))
+
+###########################################################################################
+### Calculate Final Coefficients
+
+a <- 0
+length(requests$customer_id)
+length(customers$customer_id)
+for(index in seq(1, length(requests$customer_id),1)) {
+    customer <- customers[customers$customer_id == requests[index,]$customer_id,]
+    #a <- a + 1
+    print(requests[[index]]$decisionCoeff <- as.numeric(customer$successTransferCoeff) * as.numeric(customer$fraudCoeff) * as.numeric(customer$suspCoeff) * as.numeric(customer$daysCoeff))
+
+}
+a
+#requests$decisionCoeff
+#
+# library(plyr)
+#
+# ddply
+# ########################## The above part is OK :D
+#
+# filtered <- customers[customers$fraudulent_cst == 1 & customers$suspicious_cst == 0, ]
+# filtered$fraudulent_cst
 
 
 
