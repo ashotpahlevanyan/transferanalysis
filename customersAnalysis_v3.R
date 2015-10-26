@@ -238,6 +238,8 @@ filteredRequests$decisionRank <- as.integer(tmp)-1
 
 filteredRequests <- filteredRequests[order(filteredRequests$decisionRank),]
 write.csv(filteredRequests, file = "classifiedRequests.csv", row.names = FALSE)
+write.csv(requests, file = "requestsModified.csv", row.names = FALSE)
+write.csv(customers, file = "customersModified.csv", row.names = FALSE)
 
 # ########################## The above part is OK :D
 
